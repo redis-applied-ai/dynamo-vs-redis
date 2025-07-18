@@ -50,11 +50,20 @@ def redis_worker(work_batch):
         start = time.perf_counter()
         if task == "write":
             r.set(key, vector)
-        else:  # read
+        elif task == "read":
             r.get(key)
+        elif task == "cleanup":
+            r.delete(key)
         times.append(time.perf_counter() - start)
     
     return times
+
+def redis_cleanup():
+    """Redis cleanup - flush the entire database for efficiency"""
+    r = redis.Redis(**REDIS_OPTS)
+    start = time.perf_counter()
+    r.flushdb()
+    return time.perf_counter() - start
 
 def dynamo_worker(work_batch):
     """DynamoDB worker that processes a batch of operations with a single connection"""
@@ -73,8 +82,10 @@ def dynamo_worker(work_batch):
         if task == "write":
             ddb.put_item(TableName=DDB_TABLE,
                          Item={"id": {"S": key}, "vec": {"B": vector}})
-        else:  # read
+        elif task == "read":
             ddb.get_item(TableName=DDB_TABLE, Key={"id": {"S": key}})
+        elif task == "cleanup":
+            ddb.delete_item(TableName=DDB_TABLE, Key={"id": {"S": key}})
         times.append(time.perf_counter() - start)
     
     return times
@@ -197,6 +208,21 @@ def main():
     print("\n" + "="*60)
     print("✨ Benchmark completed successfully!")
     print("="*60 + "\n")
+
+    # Cleanup phase
+    print(f"\n🧹 CLEANUP PHASE")
+    print(f"   Removing {cfg.ops:,} keys to ensure clean slate...")
+    cleanup_start = time.perf_counter()
+    
+    if cfg.db == "redis":
+        # Use fast FLUSHDB for Redis
+        cleanup_time = redis_cleanup()
+        print(f"   ✅ Redis cleanup completed")
+    else:
+        # Use worker pattern for DynamoDB deletions
+        cleanup_res = run_phase(cfg.db, "cleanup", cfg.proc, all_keys, None)
+        print(f"   ✅ DynamoDB cleanup completed")
+    
 
 if __name__ == "__main__":
     for sig in (signal.SIGINT, signal.SIGTERM):
