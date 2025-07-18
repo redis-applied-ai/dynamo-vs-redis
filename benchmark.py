@@ -25,7 +25,7 @@ REDIS_OPTS = dict(
 
 # DynamoDB config (will be set when needed)
 DDB_TABLE = env("DDB_TABLE", required=True)
-AWS_REGION = env("AWS_REGION", "us-east1")
+AWS_REGION = env("AWS_REGION", "us-east-1")
 
 VECTOR_DIM = 1024
 DTYPE = np.float32
@@ -52,8 +52,6 @@ def redis_worker(work_batch):
             r.set(key, vector)
         elif task == "read":
             r.get(key)
-        elif task == "cleanup":
-            r.delete(key)
         times.append(time.perf_counter() - start)
     
     return times
@@ -69,11 +67,14 @@ def dynamo_worker(work_batch):
     """DynamoDB worker that processes a batch of operations with a single connection"""
     task, work_items = work_batch
     
-    # Establish connection once per process
+    # Establish connection once per process with retry logic
     ddb = boto3.client(
         "dynamodb",
         region_name=AWS_REGION,
-        config=Config(retries={"max_attempts": 0}, max_pool_connections=50),
+        config=Config(
+            retries={"max_attempts": 3, "mode": "adaptive"}, 
+            max_pool_connections=50
+        ),
     )
     times = []
     
@@ -84,11 +85,56 @@ def dynamo_worker(work_batch):
                          Item={"id": {"S": key}, "vec": {"B": vector}})
         elif task == "read":
             ddb.get_item(TableName=DDB_TABLE, Key={"id": {"S": key}})
-        elif task == "cleanup":
-            ddb.delete_item(TableName=DDB_TABLE, Key={"id": {"S": key}})
         times.append(time.perf_counter() - start)
     
     return times
+
+def dynamo_cleanup_batch(all_keys):
+    """DynamoDB cleanup using batch_write_item - sequential like Redis FLUSHDB"""
+    ddb = boto3.client(
+        "dynamodb", 
+        region_name=AWS_REGION,
+        config=Config(
+            retries={"max_attempts": 5, "mode": "adaptive"},
+            max_pool_connections=10
+        )
+    )
+    
+    start_time = time.perf_counter()
+    total_deleted = 0
+    
+    # Process in batches of 25 (DynamoDB batch_write_item limit)
+    batch_size = 25
+    for i in range(0, len(all_keys), batch_size):
+        batch_keys = all_keys[i:i + batch_size]
+        
+        # Create delete requests
+        delete_requests = [
+            {"DeleteRequest": {"Key": {"id": {"S": key}}}}
+            for key in batch_keys
+        ]
+        
+        try:
+            # Execute batch delete
+            response = ddb.batch_write_item(
+                RequestItems={DDB_TABLE: delete_requests}
+            )
+            
+            # Handle unprocessed items
+            unprocessed = response.get('UnprocessedItems', {})
+            while unprocessed:
+                time.sleep(0.1)  # Brief pause before retry
+                response = ddb.batch_write_item(RequestItems=unprocessed)
+                unprocessed = response.get('UnprocessedItems', {})
+            
+            total_deleted += len(batch_keys)
+            
+        except Exception as e:
+            print(f"   ⚠️  Warning: Failed to delete batch starting at {batch_keys[0]}: {e}")
+            continue
+    
+    elapsed = time.perf_counter() - start_time
+    return elapsed, total_deleted
 
 # ---------- Benchmark orchestrator ----------
 def run_phase(db, task, processes, all_keys, all_vectors=None):
@@ -212,19 +258,16 @@ def main():
     # Cleanup phase
     print(f"\n🧹 CLEANUP PHASE")
     print(f"   Removing {cfg.ops:,} keys to ensure clean slate...")
-    cleanup_start = time.perf_counter()
     
     if cfg.db == "redis":
         # Use fast FLUSHDB for Redis
         cleanup_time = redis_cleanup()
         print(f"   ✅ Redis cleanup completed")
     else:
-        # Use worker pattern for DynamoDB deletions
-        cleanup_res = run_phase(cfg.db, "cleanup", cfg.proc, all_keys, None)
+        # Use efficient batch deletion for DynamoDB
+        cleanup_time, deleted_count = dynamo_cleanup_batch(all_keys)
         print(f"   ✅ DynamoDB cleanup completed")
-    
 
 if __name__ == "__main__":
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        signal.signal(sig, lambda *_: sys.exit(0))
+    # Removed problematic signal handlers that interfere with multiprocessing
     main()
