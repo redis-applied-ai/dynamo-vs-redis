@@ -12,33 +12,58 @@ This project compares:
 - ✅ **Write Performance** - Insert operations throughput and latency
 - ✅ **Read Performance** - Query operations throughput and latency
 
-## Quick Start
+## Setup
 
-### 1. Setup Environment (AWS EC2)
+### 1. System Dependencies on AWS EC2 Instance (Run Once)
 
 ```bash
-# Clone the repo and run setup
-git clone <your-repo-url>
-cd dynamo-vs-redis
-chmod +x setup.sh
-./setup.sh
+# Update system and install essential tools
+sudo dnf update -y
+sudo dnf install -y git curl wget
+
+# Install build tools and Python development dependencies  
+sudo dnf install -y gcc gcc-c++ make libffi-devel openssl-devel python3-pip
+
+# Verify Python 3 is available
+python3 --version
 ```
 
-The setup script will:
-- Install system dependencies
-- Install UV (Python package manager)
-- Create virtual environment and install Python dependencies
-
-### 2. Run Benchmarks
+### 2. Python Environment Setup
 
 ```bash
-# Redis benchmarks
-uv run python benchmark.py --db redis --task write
-uv run python benchmark.py --db redis --task read
+# Clone the repository
+git clone <your-repo-url>
+cd dynamo-vs-redis
 
-# DynamoDB benchmarks  
-uv run python benchmark.py --db dynamo --task write
-uv run python benchmark.py --db dynamo --task read
+# Upgrade pip
+python3 -m pip install --upgrade pip --user
+
+# Install pipx (Python package installer)
+python3 -m pip install --upgrade pipx --user
+
+# Ensure ~/.local/bin is on PATH
+export PATH="$HOME/.local/bin:$PATH"
+pipx ensurepath
+
+# Install uv (fast Python package manager)
+pipx install uv
+
+# Create virtual environment and install dependencies
+uv sync
+```
+
+### 3. Run Benchmarks
+
+```bash
+# Basic Redis benchmark (runs both write and read tests)
+uv run python benchmark.py --db redis
+
+# Basic DynamoDB benchmark (runs both write and read tests)
+uv run python benchmark.py --db dynamo
+
+# Advanced usage with custom settings
+uv run python benchmark.py --db redis --proc 4 --ops 1000
+uv run python benchmark.py --db dynamo --proc 16 --ops 5000
 ```
 
 ## Requirements
@@ -48,20 +73,32 @@ uv run python benchmark.py --db dynamo --task read
 - **Redis server** (for Redis benchmarks)
 - **AWS credentials** configured (for DynamoDB benchmarks)
 
+### Environment Variables
+
+**For Redis:**
+- `REDIS_HOST` - Redis server hostname (required)
+- `REDIS_PASSWORD` - Redis password (required)  
+- `REDIS_PORT` - Redis port (default: 6379)
+
+**For DynamoDB:**
+- `DDB_TABLE` - DynamoDB table name (required)
+- `AWS_REGION` - AWS region (default: us-east-1)
+
 ## Project Structure
 
 ```
 dynamo-vs-redis/
 ├── benchmark.py      # Main benchmark script
-├── setup.sh         # Environment setup for EC2
 ├── pyproject.toml   # Python dependencies
 └── README.md        # This file
 ```
 
 ## Configuration
 
-The benchmark script accepts command-line arguments to configure:
-- Database type (`--db redis` or `--db dynamo`)
-- Operation type (`--task read` or `--task write`)
+The benchmark script accepts these command-line arguments:
 
-Results will show throughput, latency, and other performance metrics to help you make informed database choices. 
+- `--db {redis,dynamo}` - Database to benchmark (required)
+- `--proc N` - Number of parallel processes (default: 8)
+- `--ops N` - Total number of operations per test (default: 2000)
+
+**Note:** Each benchmark run executes both write and read tests automatically, providing comprehensive performance metrics including QPS, P50, P95, and P99 latencies. 
