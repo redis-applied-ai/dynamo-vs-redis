@@ -24,8 +24,8 @@ REDIS_OPTS = dict(
 )
 
 # DynamoDB config (will be set when needed)
-DDB_TABLE = None
-AWS_REGION = None
+DDB_TABLE = env("DDB_TABLE", required=True)
+AWS_REGION = env("AWS_REGION", "us-east1")
 
 VECTOR_DIM = 1024
 DTYPE = np.float32
@@ -137,31 +137,66 @@ def main():
         DDB_TABLE = env("DDB_TABLE", required=True)
         AWS_REGION = env("AWS_REGION", "us-east-1")
     
+    # Pretty header
+    service_name = "Redis Cloud" if cfg.db == "redis" else "Amazon DynamoDB"
+    print("\n" + "="*60)
+    print(f"🚀 VECTOR STORAGE BENCHMARK - {service_name.upper()}")
+    print("="*60)
+    print(f"📊 Configuration:")
+    print(f"   • Service: {service_name}")
+    print(f"   • Processes: {cfg.proc}")
+    print(f"   • Operations: {cfg.ops:,}")
+    print(f"   • Vector Dimension: {VECTOR_DIM}")
+    print(f"   • Vector Size: {VEC_BYTES:,} bytes")
+    print("-"*60)
+    
     # Generate vectors and keys upfront
-    logging.info("Generating %d vectors...", cfg.ops)
+    print("⚙️  Generating vectors...")
     all_vectors = generate_vectors(cfg.ops)
     all_keys = [f"vec:{i}" for i in range(cfg.ops)]
     
     # Run write phase
-    logging.info("Running %s WRITE test (%d proc × %d ops)...",
-                 cfg.db.upper(), cfg.proc, cfg.ops)
+    print(f"\n📝 WRITE PERFORMANCE TEST")
+    print(f"   Testing {cfg.ops:,} write operations across {cfg.proc} processes...")
     write_res = run_phase(cfg.db, "write", cfg.proc, all_keys, all_vectors)
-    logging.info("WRITE Results → QPS: %.1f  P50: %.2fms  P95: %.2fms  P99: %.2fms",
-                 write_res['qps'], write_res['p50_ms'], write_res['p95_ms'], write_res['p99_ms'])
+    
+    print(f"\n   ✅ WRITE RESULTS:")
+    print(f"      Throughput: {write_res['qps']:,.1f} QPS")
+    print(f"      Latency P50: {write_res['p50_ms']:.2f} ms")
+    print(f"      Latency P95: {write_res['p95_ms']:.2f} ms") 
+    print(f"      Latency P99: {write_res['p99_ms']:.2f} ms")
     
     # Run read phase
-    logging.info("Running %s READ test (%d proc × %d ops)...",
-                 cfg.db.upper(), cfg.proc, cfg.ops)
+    print(f"\n📖 READ PERFORMANCE TEST")
+    print(f"   Testing {cfg.ops:,} read operations across {cfg.proc} processes...")
     read_res = run_phase(cfg.db, "read", cfg.proc, all_keys, None)
-    logging.info("READ Results → QPS: %.1f  P50: %.2fms  P95: %.2fms  P99: %.2fms",
-                 read_res['qps'], read_res['p50_ms'], read_res['p95_ms'], read_res['p99_ms'])
     
-    # Summary
-    logging.info("\n=== SUMMARY ===")
-    logging.info("WRITE: QPS=%.1f, P50=%.2fms, P95=%.2fms, P99=%.2fms", 
-                 write_res['qps'], write_res['p50_ms'], write_res['p95_ms'], write_res['p99_ms'])
-    logging.info("READ:  QPS=%.1f, P50=%.2fms, P95=%.2fms, P99=%.2fms",
-                 read_res['qps'], read_res['p50_ms'], read_res['p95_ms'], read_res['p99_ms'])
+    print(f"\n   ✅ READ RESULTS:")
+    print(f"      Throughput: {read_res['qps']:,.1f} QPS")
+    print(f"      Latency P50: {read_res['p50_ms']:.2f} ms")
+    print(f"      Latency P95: {read_res['p95_ms']:.2f} ms")
+    print(f"      Latency P99: {read_res['p99_ms']:.2f} ms")
+    
+    # Enhanced summary
+    print(f"\n" + "="*60)
+    print(f"📈 FINAL RESULTS SUMMARY - {service_name.upper()}")
+    print("="*60)
+    
+    print(f"\n🔸 WRITE OPERATIONS:")
+    print(f"   Throughput: {write_res['qps']:>10,.1f} QPS")
+    print(f"   P50 Latency: {write_res['p50_ms']:>8.2f} ms")
+    print(f"   P95 Latency: {write_res['p95_ms']:>8.2f} ms")
+    print(f"   P99 Latency: {write_res['p99_ms']:>8.2f} ms")
+    
+    print(f"\n🔸 READ OPERATIONS:")
+    print(f"   Throughput: {read_res['qps']:>10,.1f} QPS")
+    print(f"   P50 Latency: {read_res['p50_ms']:>8.2f} ms")
+    print(f"   P95 Latency: {read_res['p95_ms']:>8.2f} ms")
+    print(f"   P99 Latency: {read_res['p99_ms']:>8.2f} ms")
+    
+    print("\n" + "="*60)
+    print("✨ Benchmark completed successfully!")
+    print("="*60 + "\n")
 
 if __name__ == "__main__":
     for sig in (signal.SIGINT, signal.SIGTERM):
