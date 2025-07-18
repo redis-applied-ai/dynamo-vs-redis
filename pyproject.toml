@@ -1,0 +1,10 @@
+[project]
+name = "dynamo-vs-redis"
+version = "0.1.0"
+description = "Investigation of Redis search boosting behavior"
+dependencies = [
+    "redis",
+    "boto3",
+    "numpy",
+]
+requires-python = ">=3.11"
