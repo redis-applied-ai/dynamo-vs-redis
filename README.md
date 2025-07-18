@@ -32,7 +32,7 @@ python3 --version
 
 ```bash
 # Clone the repository
-git clone <your-repo-url>
+git clone https://github.com/redis-applied-ai/dynamo-vs-redis
 cd dynamo-vs-redis
 
 # Upgrade pip
@@ -65,6 +65,30 @@ uv run python benchmark.py --db dynamo
 uv run python benchmark.py --db redis --proc 4 --ops 1000
 uv run python benchmark.py --db dynamo --proc 16 --ops 5000
 ```
+
+## Results
+
+Here are benchmark results comparing Redis vs DynamoDB performance with  settings (`--ops 10000` on default 8 processes):
+
+<table>
+<tr>
+<td width="50%">
+
+### Redis Cloud Results
+<img src="REDIS.png" alt="Redis Benchmark Results" width="100%">
+
+
+</td>
+<td width="50%">
+
+### Amazon DynamoDB Results  
+<img src="DYNAMODB.png" alt="DynamoDB Benchmark Results" width="100%">
+
+</td>
+</tr>
+</table>
+
+With no tuning on either database -- besides standard VPC peering for both -- these are the OOTB results for simple read/write tasks involving vector embeddings (cast to bytes).
 
 ## Requirements
 
