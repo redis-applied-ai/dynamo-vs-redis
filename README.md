@@ -1,59 +1,63 @@
 # Redis vs DynamoDB Benchmarking
 
-A performance comparison tool for Redis and DynamoDB, designed to benchmark read and write operations to help you choose the right database for your use case.
+A performance comparison tool for Redis and DynamoDB, designed to benchmark read and write operations with vector embeddings to help you choose the right database for your use case.
 
 ## What We're Benchmarking
 
 This project compares:
-- **Redis** - In-memory data structure store
-- **DynamoDB** - AWS managed NoSQL database
+- **Redis** - High-performance in-memory data structure store
+- **DynamoDB** - AWS managed NoSQL database with automatic scaling
 
 **Benchmark Operations:**
 - ✅ **Write Performance** - Insert operations throughput and latency
 - ✅ **Read Performance** - Query operations throughput and latency
 
-## Setup
+## Tutorial & Data Modeling Guide
 
-### 1. System Dependencies on AWS EC2 Instance (Run Once)
+📚 **[Redis Embeddings Data Modeling Tutorial](redis_embeddings_data_modeling.ipynb)** - Interactive Jupyter notebook covering:
+- Redis data structures and APIs for vector embeddings
+- Best practices for data modeling patterns
+- Hands-on examples with real embedding workflows
+- Performance optimization techniques
 
+*Recommended reading before running benchmarks to understand the underlying data patterns being tested.*
+
+## Quick Start
+
+### Prerequisites
+- **AWS EC2 instance** (Amazon Linux 2023 recommended)
+- **Python 3.11+**
+- **Redis server** (for Redis benchmarks)
+- **AWS credentials** configured (for DynamoDB benchmarks)
+
+### Setup & Installation
+
+1. **System Dependencies** (AWS EC2 - Run Once)
 ```bash
 # Update system and install essential tools
 sudo dnf update -y
-sudo dnf install -y git curl wget
-
-# Install build tools and Python development dependencies  
-sudo dnf install -y gcc gcc-c++ make libffi-devel openssl-devel python3-pip
+sudo dnf install -y git curl wget gcc gcc-c++ make libffi-devel openssl-devel python3-pip
 
 # Verify Python 3 is available
 python3 --version
 ```
 
-### 2. Python Environment Setup
-
+2. **Python Environment Setup**
 ```bash
 # Clone the repository
 git clone https://github.com/redis-applied-ai/dynamo-vs-redis
 cd dynamo-vs-redis
 
-# Upgrade pip
-python3 -m pip install --upgrade pip --user
-
-# Install pipx (Python package installer)
-python3 -m pip install --upgrade pipx --user
-
-# Ensure ~/.local/bin is on PATH
-export PATH="$HOME/.local/bin:$PATH"
-pipx ensurepath
-
 # Install uv (fast Python package manager)
+python3 -m pip install --upgrade pip pipx --user
+export PATH="$HOME/.local/bin:$PATH"
 pipx install uv
 
 # Create virtual environment and install dependencies
 uv sync
 ```
 
-### 3. Run Benchmarks
-
+3. **Run Benchmarks**
 ```bash
 # Basic Redis benchmark (runs both write and read tests)
 uv run python benchmark.py --db redis
@@ -66,9 +70,9 @@ uv run python benchmark.py --db redis --proc 4 --ops 1000
 uv run python benchmark.py --db dynamo --proc 16 --ops 5000
 ```
 
-## Results
+## Benchmark Results
 
-Here are benchmark results comparing Redis vs DynamoDB performance with  settings (`--ops 10000` on default 8 processes):
+Here are benchmark results comparing Redis vs DynamoDB performance with default settings (`--ops 10000` on 8 processes):
 
 <table>
 <tr>
@@ -76,7 +80,6 @@ Here are benchmark results comparing Redis vs DynamoDB performance with  setting
 
 ### Redis Cloud Results
 <img src="REDIS.png" alt="Redis Benchmark Results" width="100%">
-
 
 </td>
 <td width="50%">
@@ -88,14 +91,9 @@ Here are benchmark results comparing Redis vs DynamoDB performance with  setting
 </tr>
 </table>
 
-With no tuning on either database -- besides standard VPC peering for both -- these are the OOTB results for simple read/write tasks involving vector embeddings (cast to bytes).
+**Key Findings:** With no tuning on either database — besides standard VPC peering for both — these are the out-of-the-box results for simple read/write tasks involving vector embeddings (cast to bytes).
 
-## Requirements
-
-- **AWS EC2 instance** (Amazon Linux 2023 recommended)
-- **Python 3.11+**
-- **Redis server** (for Redis benchmarks)
-- **AWS credentials** configured (for DynamoDB benchmarks)
+## Configuration
 
 ### Environment Variables
 
@@ -108,21 +106,32 @@ With no tuning on either database -- besides standard VPC peering for both -- th
 - `DDB_TABLE` - DynamoDB table name (required)
 - `AWS_REGION` - AWS region (default: us-east-1)
 
-## Project Structure
+### Command-Line Options
 
-```
-dynamo-vs-redis/
-├── benchmark.py      # Main benchmark script
-├── pyproject.toml   # Python dependencies
-└── README.md        # This file
-```
-
-## Configuration
-
-The benchmark script accepts these command-line arguments:
+The benchmark script accepts these arguments:
 
 - `--db {redis,dynamo}` - Database to benchmark (required)
 - `--proc N` - Number of parallel processes (default: 8)
 - `--ops N` - Total number of operations per test (default: 2000)
 
-**Note:** Each benchmark run executes both write and read tests automatically, providing comprehensive performance metrics including QPS, P50, P95, and P99 latencies. 
+**Note:** Each benchmark run executes both write and read tests automatically, providing comprehensive performance metrics including QPS, P50, P95, and P99 latencies.
+
+## Project Structure
+
+```
+dynamo-vs-redis/
+├── benchmark.py                               # Main benchmark script
+├── redis_embeddings_data_modeling.ipynb     # Tutorial notebook  
+├── pyproject.toml                            # Python dependencies
+├── REDIS.png                                 # Redis benchmark results
+├── DYNAMODB.png                              # DynamoDB benchmark results
+└── README.md                                 # This file
+```
+
+## Use Cases
+
+This benchmarking tool is ideal for:
+- 🚀 **AI/ML Applications** - Vector similarity search and embedding storage
+- 📊 **Performance Testing** - Database selection for high-throughput workloads  
+- 🔍 **Cost Analysis** - Comparing operational costs between Redis and DynamoDB
+- 🏗️ **Architecture Planning** - Making informed decisions for production deployments 

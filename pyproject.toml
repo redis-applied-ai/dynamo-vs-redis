@@ -6,5 +6,6 @@ dependencies = [
     "redis",
     "boto3",
     "numpy",
+    "ipykernel>=6.30.0",
 ]
 requires-python = ">=3.11"
